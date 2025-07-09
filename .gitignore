@@ -1,0 +1,53 @@
+# === Java ===
+*.class
+*.jar
+*.war
+*.ear
+
+# === Maven ===
+/target/
+!.mvn/wrapper/maven-wrapper.jar
+**/logs/
+mvnw
+mvnw.cmd
+
+# === IntelliJ IDEA ===
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
+# === Eclipse ===
+.project
+.classpath
+.settings/
+
+# === VS Code ===
+.vscode/
+
+# === OS Files ===
+.DS_Store
+Thumbs.db
+
+# === Logs ===
+*.log
+
+# === Local file storage (upload/converted files) ===
+/uploads/
+/converted/
+
+# === Environment/Secrets ===
+.env
+application-local.yml
+application-secrets.yml
+
+# === Node Frontend (if exists) ===
+node_modules/
+dist/
+build/
+
+# === Docker/Containers (if later added) ===
+*.pid
+*.tar
+docker-compose.override.yml
