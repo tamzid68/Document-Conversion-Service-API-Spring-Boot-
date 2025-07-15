@@ -1,7 +1,0 @@
-file:
-  upload-dir: ./uploads
-  converted-dir: ./converted
-conversion:
-  cleanup:
-    ttl-minutes: 15
-    cron-expression: "0 */10 * * * *" # Every 10 minutes
