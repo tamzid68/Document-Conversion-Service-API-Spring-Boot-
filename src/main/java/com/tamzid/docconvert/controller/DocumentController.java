@@ -35,13 +35,28 @@ public class DocumentController {
 
     @PostMapping("/convert")
     public ResponseEntity<?> covertFile(
-            @RequestParam("file")MultipartFile file,
-            @RequestParam("fromFormat") String from,
-            @RequestParam("toFormat") String to
-            ) throws IOException{
-        String downloadUrl = conversionService.handleConversion(file, from, to);
-
-        return ResponseEntity.ok(Map.of("downloadUrl", downloadUrl));
+            @RequestParam(value = "file", required = false) MultipartFile file,
+            @RequestParam(value = "fromFormat", required = false) String from,
+            @RequestParam(value = "toFormat", required = false) String to
+    ) {
+        // Validate input
+        if (file == null || file.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "File must not be empty"));
+        }
+        if (from == null || from.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "fromFormat must not be empty"));
+        }
+        if (to == null || to.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "toFormat must not be empty"));
+        }
+        try {
+            String downloadUrl = conversionService.handleConversion(file, from, to);
+            return ResponseEntity.ok(Map.of("downloadUrl", downloadUrl));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", "Conversion failed: " + e.getMessage()));
+        }
     }
 
     @GetMapping("/download/{filename}")
