@@ -87,7 +87,7 @@ public class ConversionService implements IConversionService {
             } catch (Exception e) {
                 throw new RuntimeException("Failed to convert PDF to DOCX: " + e.getMessage(), e);
             }
-            return;
+
         }
         else if (from.equalsIgnoreCase("docx") && to.equalsIgnoreCase("pdf")) {
             // Use LibreOffice to convert DOCX to PDF

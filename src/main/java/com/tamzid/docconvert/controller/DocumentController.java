@@ -28,13 +28,13 @@ public class DocumentController {
         this.conversionService = conversionService;
     }
 
-    @PostMapping("/")
+    @GetMapping("/")
     public ResponseEntity<String> index() {
         return ResponseEntity.ok("Welcome to Document Conversion API");
     }
 
     @PostMapping("/convert")
-    public ResponseEntity<?> covertFile(
+    public ResponseEntity<?> convertFile(
             @RequestParam(value = "file", required = false) MultipartFile file,
             @RequestParam(value = "fromFormat", required = false) String from,
             @RequestParam(value = "toFormat", required = false) String to
