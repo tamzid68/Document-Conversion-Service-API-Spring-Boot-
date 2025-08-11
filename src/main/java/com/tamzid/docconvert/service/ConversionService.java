@@ -4,18 +4,12 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.UUID;
-
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.text.PDFTextStripper;
-import org.apache.poi.xwpf.usermodel.XWPFDocument;
-import org.apache.poi.xwpf.usermodel.XWPFParagraph;
 
 @Service
 public class ConversionService implements IConversionService {
@@ -74,22 +68,68 @@ public class ConversionService implements IConversionService {
             outDir.mkdirs();
         }
         if (from.equalsIgnoreCase("pdf") && to.equalsIgnoreCase("docx")) {
-            // Use PDFBox + POI for basic PDF to DOCX conversion
-            try (PDDocument pdf = PDDocument.load(input);
-                 XWPFDocument docx = new XWPFDocument();
-                 FileOutputStream out = new FileOutputStream(output)) {
-
-                PDFTextStripper stripper = new PDFTextStripper();
-                String text = stripper.getText(pdf);
-                XWPFParagraph para = docx.createParagraph();
-                para.createRun().setText(text);
-                docx.write(out);
+            // Two-step conversion: PDF -> ODT -> DOCX
+            try {
+                // Step 1: PDF to ODT
+                ProcessBuilder pb1 = new ProcessBuilder(
+                        sofficePath,
+                        "--headless",
+                        "--convert-to", "odt",
+                        "--outdir", output.getParent(),
+                        input.getAbsolutePath()
+                );
+                pb1.redirectErrorStream(true);
+                System.out.println("[LibreOffice CMD 1] " + pb1.command());
+                Process process1 = pb1.start();
+                StringBuilder processOutput1 = new StringBuilder();
+                try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(process1.getInputStream()))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        processOutput1.append(line).append(System.lineSeparator());
+                    }
+                }
+                int exitCode1 = process1.waitFor();
+                System.out.println("[LibreOffice OUTPUT 1] " + processOutput1);
+                if (exitCode1 != 0) {
+                    throw new RuntimeException("LibreOffice PDF->ODT conversion failed with exit code: " + exitCode1 + " Output:" + processOutput1);
+                }
+                // Find the ODT file (same name as input, but .odt)
+                String odtFileName = input.getName().replaceAll("(?i)\\.pdf$", ".odt");
+                File odtFile = new File(output.getParent(), odtFileName);
+                if (!odtFile.exists()) {
+                    throw new RuntimeException("ODT file not found after PDF->ODT conversion: " + odtFile.getAbsolutePath());
+                }
+                // Step 2: ODT to DOCX
+                ProcessBuilder pb2 = new ProcessBuilder(
+                        sofficePath,
+                        "--headless",
+                        "--convert-to", "docx",
+                        "--outdir", output.getParent(),
+                        odtFile.getAbsolutePath()
+                );
+                pb2.redirectErrorStream(true);
+                System.out.println("[LibreOffice CMD 2] " + pb2.command());
+                Process process2 = pb2.start();
+                StringBuilder processOutput2 = new StringBuilder();
+                try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(process2.getInputStream()))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        processOutput2.append(line).append(System.lineSeparator());
+                    }
+                }
+                int exitCode2 = process2.waitFor();
+                System.out.println("[LibreOffice OUTPUT 2] " + processOutput2);
+                if (exitCode2 != 0) {
+                    throw new RuntimeException("LibreOffice ODT->DOCX conversion failed with exit code: " + exitCode2 + " Output:" + processOutput2);
+                }
+                // Optionally, delete the intermediate ODT file
+                if (!odtFile.delete()) {
+                    System.out.println("Warning: Could not delete intermediate ODT file: " + odtFile.getAbsolutePath());
+                }
             } catch (Exception e) {
-                throw new RuntimeException("Failed to convert PDF to DOCX: " + e.getMessage(), e);
+                throw new RuntimeException("Conversion failed: " + e.getMessage(), e);
             }
-
-        }
-        else if (from.equalsIgnoreCase("docx") && to.equalsIgnoreCase("pdf")) {
+        } else if (from.equalsIgnoreCase("docx") && to.equalsIgnoreCase("pdf")) {
             // Use LibreOffice to convert DOCX to PDF
             try {
                 ProcessBuilder pb = new ProcessBuilder(
@@ -112,11 +152,11 @@ public class ConversionService implements IConversionService {
                 int exitCode = process.waitFor();
                 System.out.println("[LibreOffice OUTPUT] " + processOutput);
                 if (exitCode != 0) {
-                    throw new RuntimeException("LibreOffice conversion failed with exit code: " + exitCode + "\nOutput:\n" + processOutput);
+                    throw new RuntimeException("LibreOffice conversion failed with exit code: " + exitCode + " Output: " + processOutput);
                 }
                 File converted = new File(output.getParent(), input.getName().replaceAll("\\.docx$", ".pdf"));
                 if (!converted.exists()) {
-                    throw new RuntimeException("Converted PDF file not found: " + converted.getAbsolutePath() + "\nLibreOffice Output:\n" + processOutput);
+                    throw new RuntimeException("Converted PDF file not found: " + converted.getAbsolutePath() + " LibreOffice Output: " + processOutput);
                 }
                 if (!converted.renameTo(output)) {
                     throw new RuntimeException("Failed to move converted PDF to output location");
@@ -124,8 +164,7 @@ public class ConversionService implements IConversionService {
             } catch (Exception e) {
                 throw new RuntimeException("Failed to convert DOCX to PDF using LibreOffice: " + e.getMessage(), e);
             }
-        }
-        else {
+        } else {
             throw new IllegalArgumentException("Unsupported conversion from " + from + " to " + to);
         }
     }
